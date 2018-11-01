@@ -9,21 +9,21 @@ We are going to implement two parallelized algorithms for matrix factorization i
 
 ## Background
 In mathematics, matrix factorization (or matrix decomposition) is to represent a matrix by a product of matrices. It is one of the most popular collaborative filtering techniques for recommendation systems. We first briefly introduce the problem that we will be working on in this project:
-* Assume that we have $N_u$ users and $N_i$ items. We are provided with an user–item interaction matrix $M \in \mathbb{R}^{N_u \times N_i}$ and its entries $m_{ui}$ can be an interaction value or a missing value (invalid). To estimate some of the missing values, we construct two matrices $U \in \mathbb{R}^{N_u \times k}$ and $I \in \mathbb{R}^{N_i \times k}$ for some rank $k$ as the latent features of users and items, so the estimated interaction value becomes the inner product of two feature vectors $\hat{m}_{ui} = U_u {I_i}^T$.
-* Now it can be transformed to a matrix factorization problem. Given the interaction matrix $M$, we are required to find matrices $U$ and $I$ that best represent the existing interaction values in $M$. In practice, we will try to minimize a loss function (of $U$ and $I$) to obtain the optimal results for $U$ and $I$.
+* Assume that we have <a href="https://www.codecogs.com/eqnedit.php?latex=N_u" target="_blank"><img src="https://latex.codecogs.com/gif.latex?N_u" title="N_u" /></a> users and <a href="https://www.codecogs.com/eqnedit.php?latex=N_i" target="_blank"><img src="https://latex.codecogs.com/gif.latex?N_i" title="N_i" /></a> items. We are provided with an user–item interaction matrix <a href="https://www.codecogs.com/eqnedit.php?latex=M&space;\in&space;\mathbb{R}^{N_u&space;\times&space;N_i}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?M&space;\in&space;\mathbb{R}^{N_u&space;\times&space;N_i}" title="M \in \mathbb{R}^{N_u \times N_i}" /></a> and its entries <a href="https://www.codecogs.com/eqnedit.php?latex=m_{ui}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?m_{ui}" title="m_{ui}" /></a> can be an interaction value or a missing value (invalid). To estimate some of the missing values, we construct two matrices <a href="https://www.codecogs.com/eqnedit.php?latex=U&space;\in&space;\mathbb{R}^{N_u&space;\times&space;k}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?U&space;\in&space;\mathbb{R}^{N_u&space;\times&space;k}" title="U \in \mathbb{R}^{N_u \times k}" /></a> and <a href="https://www.codecogs.com/eqnedit.php?latex=I&space;\in&space;\mathbb{R}^{N_i&space;\times&space;k}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?I&space;\in&space;\mathbb{R}^{N_i&space;\times&space;k}" title="I \in \mathbb{R}^{N_i \times k}" /></a> for some rank <a href="https://www.codecogs.com/eqnedit.php?latex=k" target="_blank"><img src="https://latex.codecogs.com/gif.latex?k" title="k" /></a> as the latent features of users and items, so the estimated interaction value becomes the inner product of two feature vectors <a href="https://www.codecogs.com/eqnedit.php?latex=\hat{m}_{ui}&space;=&space;U_u&space;{I_i}^T" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\hat{m}_{ui}&space;=&space;U_u&space;{I_i}^T" title="\hat{m}_{ui} = U_u {I_i}^T" /></a>.
+* Now it can be transformed to a matrix factorization problem. Given the interaction matrix M, we are required to find matrices U and I that best represent the existing interaction values in M. In practice, we will try to minimize a loss function (of U and I) to obtain the optimal results for U and I.
 
-**Alternating Least Squares (ALS)** and **Stochastic Gradient Descent (SGD)** are two popular approaches to compute matrix factorization (in this case, matrices $U$ and $I$). We will discuss both algorithms and how we parallelize them, respectively.
+**Alternating Least Squares (ALS)** and **Stochastic Gradient Descent (SGD)** are two popular approaches to compute matrix factorization (in this case, matrices U and I). We will discuss both algorithms and how we parallelize them, respectively.
 
 ### ALS
-* Step 1: Initialize matrix $I$ by assigning average values;
-* Step 2: Fix $I$, solve $U$ by minimizing the loss function;
-* Step 3: Fix $U$, solve $I$ by minimizing the loss function similarly;
+* Step 1: Initialize matrix I by assigning average values;
+* Step 2: Fix I, solve U by minimizing the loss function;
+* Step 3: Fix U, solve I by minimizing the loss function similarly;
 * Step 4: Repeat steps 2 and 3 until a stopping criterion is satisfied.
 
-If we apply mean-square loss and append a Tikhonov regularization term on the loss function, the optimal result of $U$ while fixing $I$ can be obtained through mathematical approach. Furthermore, the calculation on each row of $U$ will be independent from each other. Then, to update $U$, we can update each row of $U$ simultaneously and therefore we can parallelize ALS by parallelizing the updates of $U$ (step 2) and of $I$ (step 3; symmetric).
+If we apply mean-square loss and append a Tikhonov regularization term on the loss function, the optimal result of U while fixing I can be obtained through mathematical approach. Furthermore, the calculation on each row of U will be independent from each other. Then, to update U, we can update each row of U simultaneously and therefore we can parallelize ALS by parallelizing the updates of U (step 2) and of I (step 3; symmetric).
 
 ### SGD
-Assume that we have $v$ valid interaction values in matrix $M$ and we run SGD for $T$ rounds, we can have the following algorithm:
+Assume that we have v valid interaction values in matrix M and we run SGD for T rounds, we can have the following algorithm:
 ```
 Initialize matrices U and I
 for t = 1 to T:
@@ -31,7 +31,7 @@ for t = 1 to T:
   Calculate the loss of i-th interaction using current U and I
   Update U and I based on the loss
 ```
-SGD will be harder to parallelize as the process is inherently serial. A possible way for parallelization is to allow multiple threads overwriting $U$ and $I$ matrices at the same time, assuming that the interaction matrix $M$ is sufficiently sparse. Another method is to grid the interaction matrix $M$ into many independent blocks. Each thread will only pick random pairs from the assigned block and the independence between blocks helps parallize the SGD algorithm.
+SGD will be harder to parallelize as the process is inherently serial. A possible way for parallelization is to allow multiple threads overwriting U and I matrices at the same time, assuming that the interaction matrix M is sufficiently sparse. Another method is to grid the interaction matrix M into many independent blocks. Each thread will only pick random pairs from the assigned block and the independence between blocks helps parallize the SGD algorithm.
 
 ## Challenge
 ALS and SGD have quite different workload patterns, therefore the challenges exhibited in these two algorithms are also different.

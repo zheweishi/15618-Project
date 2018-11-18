@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include "mpi.h"
 #include "als.h"
+#include "uthash.h"
 
 int main(int argc, char* argv[]) {
     int procID;

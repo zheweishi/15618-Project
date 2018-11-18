@@ -300,12 +300,14 @@ void compute(int procID, int nproc, char* inputFilename,
     init(numFeatures, numIterations, lambda);
 
     /* Read the input file and initialization */
-    readInput(inputFilename);
+    if (procID == root) {
+        readInput(inputFilename);
+    }
 
+    /* broadcast the movie matrix */
+    
+    
     /* Start */
-
-    
-    
     // each processor load the corresponding rating matrix of users/ movies
 
     // start iteration 

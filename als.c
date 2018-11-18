@@ -28,7 +28,9 @@ double* userRating;
 struct movie* movie_hashtable; // to record the number of rating for each movie 
 struct user* user_hashtable; // to record the number of rating for each user
 
-// helper function for hashtable 
+//---------------------------------------------
+//------- helper function for hashtable--------
+//--------------------------------------------- 
 void add_movie(int id, double rating) {
     struct movie* res;
     HASH_FIND_INT(movie_hashtable, &id, res);
@@ -101,7 +103,13 @@ int find_user(int id) {
     }
 }
 
+//------------------------------------------------
+//-----------process input data-------------------
+//------------------------------------------------
 
+/**
+ * get the input relevant stat
+ */
 void getInputStat(char* inputFilename) {
     userNum = 0;
     movieNum = 0;
@@ -193,10 +201,14 @@ void initRatingMatrix(int uid, int mid, double rating) {
 void initMatrix() {
     movieMatrix = (feature_t *)malloc(sizeof(feature_t) * (info.numFeature * movieNum));
     userMatrix = (feature_t *)malloc(sizeof(feature_t) * (info.numFeature * userNum));
-    int i = 0;
+    int i, j;
     for (i = 0; i < movieNum; ++i) {
-        movieMatrix[i * info.numFeature] = get_movie_average(i + 1);
+        int start_idx = i * info.numFeature;
+        movieMatrix[start_idx] = get_movie_average(i + 1);
         // initialize the random small value
+        for (j = 1; j < info.numFeature; ++j) {
+            movieMatrix[start_idx + j] = (rand() % 1000) / 1000.0;
+        }
     }
 }
 
@@ -273,6 +285,9 @@ void init(int numFeatures, int numIter, double lambda) {
     info.lambda = lambda;
 }
 
+//-----------------------------------------------------------------
+//---------------------real computation----------------------------
+//-----------------------------------------------------------------
 void compute(int procID, int nproc, char* inputFilename, 
              int numFeatures, int numIterations, double lambda) 
 {

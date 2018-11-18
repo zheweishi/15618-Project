@@ -15,7 +15,7 @@ struct movie {
     int id; 
     int rating_num;
     int num;
-    int total_rating;
+    double total_rating;
     UT_hash_handle hh; 
 };
 
@@ -33,5 +33,7 @@ typedef struct global_info {
 
 typedef double feature_t;
 
-void compute()
+void compute(int procID, int nproc, char* inputFilename, 
+             int numFeatures, int numIterations, double lambda);
+
 #endif // _ALS_H

@@ -10,14 +10,14 @@ int main(int argc, char* argv[]) {
     int procID;
     int nproc;
     int opt = 0;
-    char* inputFilname = NULL;
+    char* inputFilename = NULL;
     int numIterations = 15;
     double lambda = 0.065;
     int numFeatures = 10; 
     double startTime;
     double endTime;
 
-    // Initialize MPI 
+    Initialize MPI 
     MPI_Init(&argc, &argv);
 
     // Read command line arg

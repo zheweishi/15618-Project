@@ -17,11 +17,11 @@ int ratingNum;
 
 int* userStartIdx;
 int* movieId;
-int* movieRating;
+double* movieRating;
 
 int* movieStartIdx;
 int* userId; 
-int* userRating;
+double* userRating;
 
 #define MAX_NAME_LEN 10
 
@@ -29,9 +29,9 @@ struct movie* movie_hashtable; // to record the number of rating for each movie
 struct user* user_hashtable; // to record the number of rating for each user
 
 // helper function for hashtable 
-void add_movie(int id, int rating) {
+void add_movie(int id, double rating) {
     struct movie* res;
-    HASH_FIND_INT(movie_hashtable, id, res);
+    HASH_FIND_INT(movie_hashtable, &id, res);
     if (res == NULL) {
         struct movie* new_movie = (struct movie*)malloc(sizeof(struct movie));
         new_movie -> id = id;
@@ -48,13 +48,13 @@ void add_movie(int id, int rating) {
 
 void delete_movie(int id) {
     struct movie* res;
-    HASH_FIND_INT(movie_hashtable, id, res);
+    HASH_FIND_INT(movie_hashtable, &id, res);
     res -> rating_num --;
 }
 
 int find_movie(int id) {
     struct movie *result;
-    HASH_FIND_INT(movie_hashtable, id, result);
+    HASH_FIND_INT(movie_hashtable, &id, result);
     if (result == NULL) {
         return 0;
     } else {
@@ -64,34 +64,36 @@ int find_movie(int id) {
 
 double get_movie_average(int id) {
     struct movie *result;
-    HASH_FIND_INT(movie_hashtable, id, result);
+    HASH_FIND_INT(movie_hashtable, &id, result);
     if (result == NULL) {
         return 0;
     } else {
-        return result.total_rating / double(result.num);
+        return result -> total_rating / ((double)result -> num);
     }
 }
 
 void add_user(int id) {
     struct user* res;
-    HASH_FIND_INT(user_hashtable, id, res);
+    HASH_FIND_INT(user_hashtable, &id, res);
     if (res == NULL) {
         struct user* new_user = (struct user*)malloc(sizeof(struct user));
         new_user -> id = id;
         new_user -> rating_num = 1;
         HASH_ADD_INT(user_hashtable, id, new_user);
+    } else {
+        res -> rating_num++;
     }
 }
 
 void delete_user(int id) {
     struct user* res;
-    HASH_FIND_INT(user_hashtable, id, res);
+    HASH_FIND_INT(user_hashtable, &id, res);
     res -> rating_num --;
 }
 
 int find_user(int id) {
     struct user *result;
-    HASH_FIND_INT(user_hashtable, id, result);
+    HASH_FIND_INT(user_hashtable, &id, result);
     if (result == NULL) {
         return 0;
     } else {
@@ -100,7 +102,7 @@ int find_user(int id) {
 }
 
 
-void getInputStat(char* inputFileName) {
+void getInputStat(char* inputFilename) {
     userNum = 0;
     movieNum = 0;
     ratingNum = 0;
@@ -114,9 +116,9 @@ void getInputStat(char* inputFileName) {
     ssize_t read;
     size_t len = 0;
     char* line = NULL;
-    int userId = 0;
-    int movieId = 0;
-    int rating = 0;
+    int uid = 0;
+    int mid = 0;
+    double rating = 0;
     if ((read = getline(&line, &len, fp)) != -1) {
         printf("Read the tag line (not useful)\n");
     }
@@ -133,25 +135,24 @@ void getInputStat(char* inputFileName) {
         while (comma_cnt < 3) {
             if (*tmp == ',') {
                 word_len = tmp - last_pos;
-                char tmp[MAX_NAME_LEN] = "";
-                strncpy(tmp, last_pos, word_len);
+                char tmpbuf[MAX_NAME_LEN] = "";
+                strncpy(tmpbuf, last_pos, word_len);
                 if (comma_cnt == 0) {
-                    userId = atoi(tmp);
+                    uid = atoi(tmpbuf);
                 } else if (comma_cnt == 1) {
-                    movieId = atoi(tmp);
+                    mid = atoi(tmpbuf);
                 } else {
-                    rating = atoi(tmp);
+                    rating = atof(tmpbuf);
                 }
-                add_movie(movieId, rating);  // keep record of rating number for each movie
-                add_user(movieId);  // keep record of rating number of each user
                 comma_cnt++;
                 last_pos = tmp + 1;
             }
             tmp++;
         }
-
-        userNum = max(userNum, userId);
-        movieNum = max(movieNum, movieId);
+        add_movie(mid, rating);  // keep record of rating number for each movie
+        add_user(uid);           // keep record of rating number of each user
+        userNum = max(userNum, uid);
+        movieNum = max(movieNum, mid);
     }
     printf("There are %d ratings, %d users, %d movies\n", ratingNum, userNum, movieNum);
 }
@@ -178,15 +179,15 @@ void initMovieStartIndex() {
     movieStartIdx[movieNum] = ratingNum;
 }
 
-void initRatingMatrix(int userId, int movieId, int rating) {
-    int movieIdx = movieStartIdx[movieId] - find_movie(movieId);
-    int userIdx = userStartIdx[userId] - find_user(userId);
-    userId[movieIdx] = userId;
+void initRatingMatrix(int uid, int mid, double rating) {
+    int movieIdx = movieStartIdx[mid] - find_movie(mid);
+    int userIdx = userStartIdx[uid] - find_user(uid);
+    userId[movieIdx] = uid;
     userRating[movieIdx] = rating;
-    movieId[userIdx] = movieId;
+    movieId[userIdx] = mid;
     movieRating[userIdx] = rating;
-    delete_movie(movieId);
-    delete_user(userId);
+    delete_movie(mid);
+    delete_user(uid);
 }
 
 void initMatrix() {
@@ -195,6 +196,7 @@ void initMatrix() {
     int i = 0;
     for (i = 0; i < movieNum; ++i) {
         movieMatrix[i * info.numFeature] = get_movie_average(i + 1);
+        // initialize the random small value
     }
 }
 
@@ -213,11 +215,11 @@ void readInput(char* inputFilename) {
     // initialize the data structure
     userStartIdx = (int*)malloc(sizeof(int) * (userNum + 1));
     movieId = (int*)malloc(sizeof(int) * (ratingNum + 1));
-    movieRating = (int*)malloc(sizeof(int) * (ratingNum + 1));
+    movieRating = (double*)malloc(sizeof(double) * (ratingNum + 1));
 
     movieStartIdx = (int*)malloc(sizeof(int) * (movieNum + 1));
     userId = (int*)malloc(sizeof(int) * (ratingNum + 1));
-    userRating = (int*)malloc(sizeof(int) * (ratingNum + 1));
+    userRating = (double*)malloc(sizeof(double) * (ratingNum + 1));
 
     // init start index 
     initUserStartIndex();
@@ -226,9 +228,9 @@ void readInput(char* inputFilename) {
     ssize_t read;
     size_t len = 0;
     char* line = NULL;
-    int userId = 0;
-    int movieId = 0;
-    int rating = 0;
+    int uid = 0;
+    int mid = 0;
+    double rating = 0;
     if ((read = getline(&line, &len, fp)) != -1) {
         printf("Read the tag line (not useful)\n");
     }
@@ -243,23 +245,22 @@ void readInput(char* inputFilename) {
         while (comma_cnt < 3) {
             if (*tmp == ',') {
                 word_len = tmp - last_pos;
-                char tmp[MAX_NAME_LEN] = "";
-                strncpy(tmp, last_pos, word_len);
+                char tmpbuf[MAX_NAME_LEN] = "";
+                strncpy(tmpbuf, last_pos, word_len);
                 if (comma_cnt == 0) {
-                    userId = atoi(tmp);
+                    uid = atoi(tmpbuf);
                 } else if (comma_cnt == 1) {
-                    movieId = atoi(tmp);
+                    mid = atoi(tmpbuf);
                 } else {
-                    rating = atoi(tmp);
+                    rating = atof(tmpbuf);
                 }
                 comma_cnt++;
                 last_pos = tmp + 1;
             }
             tmp++;
         }
-
         // initialize the rating matrix (use compression)
-        initRatingMatrix(userId, movieId, rating);
+        initRatingMatrix(uid, mid, rating);
     }
 
     // initialize movie/ user matrix
@@ -280,19 +281,21 @@ void compute(int procID, int nproc, char* inputFilename,
     int source = 0;
     MPI_State status;
 
+    // initialize
+    init(numFeatures, numIterations, lambda);
+
     /* Read the input file and initialization */
     readInput(inputFilename);
 
     /* Start */
 
-    // initialize
-    init(numFeatures, numIterations, lambda);
+    
     
     // each processor load the corresponding rating matrix of users/ movies
 
     // start iteration 
-    int iter = 0;
-    for (iter = 0; iter < numIterations; ++iter) {
+    //int iter = 0;
+    //for (iter = 0; iter < numIterations; ++iter) {
         // Each processor solve user feature
 
 
@@ -303,7 +306,7 @@ void compute(int procID, int nproc, char* inputFilename,
 
         // allgather (everyone gets a local copy of M)
 
-    }
+    //}
 
     // compute prediction and rmse 
 

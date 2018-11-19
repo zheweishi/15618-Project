@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "mpi.h"
+//#include "mpi.h"
+
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_linalg.h>
 
 /* Define global variables */
 global_info info;
@@ -294,10 +298,21 @@ void compute(int procID, int nproc, char* inputFilename,
     const int root = 0; // set the rank 0 processor as the root 
     int tag = 0;
     int source = 0;
-    MPI_State status;
+    //MPI_State status;
 
     // initialize
     init(numFeatures, numIterations, lambda);
+
+    int* n_user =  (int *)malloc(sizeof(int) * userNum);
+    int* n_movie = (int *)malloc(sizeof(int) * movieNum);
+
+    int i, j;
+    for (i = 0; i < userNum; ++i) {
+        n_user[i] = userStartIdx[i+1] - userStartIdx[i];
+    }
+    for (i = 0; i < movieNum; ++i) {
+        n_movie[i] = movieStartIdx[i+1] - movieStartIdx[i];
+    }
 
     /* Read the input file and initialization */
     if (procID == root) {
@@ -310,22 +325,107 @@ void compute(int procID, int nproc, char* inputFilename,
     /* Start */
     // each processor load the corresponding rating matrix of users/ movies
 
-    // start iteration 
-    //int iter = 0;
-    //for (iter = 0; iter < numIterations; ++iter) {
-        // Each processor solve user feature
+    // start iteration
+    gsl_matrix * M = gsl_matrix_alloc (numFeatures, movieNum);
+    gsl_matrix * U = gsl_matrix_alloc (numFeatures, userNum);
 
+    gsl_matrix * A = gsl_matrix_alloc (numFeatures, numFeatures);
+    gsl_matrix * Ainv = gsl_matrix_alloc (numFeatures, numFeatures);
+
+    gsl_matrix * E = gsl_matrix_alloc (numFeatures, numFeatures);
+    for (i = 0; i < numFeatures; ++i)
+        gsl_matrix_set(E, i, i, 1);
+    gsl_matrix * F = gsl_matrix_alloc (numFeatures, numFeatures);
+
+    gsl_vector * V = gsl_vector_alloc (numFeatures);
+
+    gsl_vector * Rm = gsl_vector_alloc (movieNum);
+    gsl_vector * Ru = gsl_vector_alloc (userNum);
+
+    gsl_permutation *p = gsl_permutation_alloc(numFeatures);
+    gsl_vector * O = gsl_vector_alloc (numFeatures);
+
+    printf("Start iteration\n");
+
+    int iter = 0;
+    for (iter = 0; iter < numIterations; ++iter) {
+
+        // Each processor solve user feature
+        int user_idx;
+        for (user_idx = 0; user_idx < userNum; ++user_idx) {
+            printf("Updating user %d (iter = %d)\n", user_idx, iter);
+
+            gsl_matrix_set_zero (M);
+            for (i = userStartIdx[user_idx]; i < userStartIdx[user_idx+1]; ++i)
+                for (j = 0; j < numFeatures; ++j)
+                    gsl_matrix_set(M, j, i - userStartIdx[user_idx], movieMatrix[movieId[i] * numFeatures + j]);
+
+            gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1, M, M, 0, A);
+            gsl_matrix_memcpy(F, E);
+            gsl_matrix_scale(F, lambda * n_user[user_idx]);
+            gsl_matrix_add(A, F); // A = M M^T + lambda * n * E
+
+            gsl_vector_set_zero (Rm);
+            for (i = userStartIdx[user_idx]; i < userStartIdx[user_idx+1]; ++i)
+                gsl_vector_set(Rm, i - userStartIdx[user_idx], movieRating[i]);
+
+            gsl_blas_dgemv(CblasNoTrans, 1, M, Rm, 0, V); // V = M R^T
+
+            int s;
+            gsl_linalg_LU_decomp(A, p, &s);
+            gsl_linalg_LU_invert(A, p, Ainv);
+
+            gsl_blas_dgemv(CblasNoTrans, 1, Ainv, V, 0, O); // O = A^-1 V
+
+            for (j = 0; j < numFeatures; ++j)
+                userMatrix[user_idx * numFeatures + j] = gsl_vector_get(O, j);
+        }
+
+        for (user_idx = 0; user_idx < userNum; ++user_idx) {
+            for (j = 0; j < numFeatures; ++j)
+                printf("%f ", userMatrix[user_idx * numFeatures + j]);
+            printf("\n");
+        }
 
         // allgather (everyone gets a local copy of U)
 
+        // solver movie feature matrix
+        int movie_idx;
+        for (movie_idx = 0; movie_idx < movieNum; ++movie_idx) {
+            printf("Updating movie %d (iter = %d)\n", movie_idx, iter);
 
-        // solver movie feature matrix 
+            gsl_matrix_set_zero (U);
+            for (i = movieStartIdx[movie_idx]; i < movieStartIdx[movie_idx+1]; ++i)
+                for (j = 0; j < numFeatures; ++j)
+                    gsl_matrix_set(U, j, i - movieStartIdx[movie_idx], userMatrix[userId[i] * numFeatures + j]);
+
+            gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1, U, U, 0, A);
+            gsl_matrix_memcpy(F, E);
+            gsl_matrix_scale(F, lambda * n_movie[movie_idx]);
+            gsl_matrix_add(A, F); // A = U U^T + lambda * n * E
+
+            gsl_vector_set_zero (Ru);
+            for (i = movieStartIdx[movie_idx]; i < movieStartIdx[movie_idx+1]; ++i)
+                gsl_vector_set(Ru, i - movieStartIdx[movie_idx], userRating[i]);
+
+            gsl_blas_dgemv(CblasNoTrans, 1, U, Ru, 0, V); // V = U R^T
+
+            gsl_matrix_fprintf(stdout, A, "%f");
+
+            int s;
+            gsl_linalg_LU_decomp(A, p, &s);
+            gsl_linalg_LU_invert(A, p, Ainv);
+
+            gsl_blas_dgemv(CblasNoTrans, 1, Ainv, V, 0, O); // O = A^-1 V
+
+            for (j = 0; j < numFeatures; ++j)
+                movieMatrix[movie_idx * numFeatures + j] = gsl_vector_get(O, j);
+        }
 
         // allgather (everyone gets a local copy of M)
 
-    //}
+    }
 
     // compute prediction and rmse 
-
 
 }

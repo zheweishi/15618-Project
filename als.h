@@ -27,7 +27,7 @@ struct user {
 
 typedef struct global_info {
     int numIter;
-    int numFeature;
+    int numFeatures;
     double lambda;
 } global_info;
 

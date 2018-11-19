@@ -1,12 +1,14 @@
 #include "als.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
 #include "mpi.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#include <gsl/gsl_matrix.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_linalg.h>
+#include <gsl/gsl_matrix.h>
+
+#define MAX_NAME_LEN 10
 
 /* Define global variables */
 global_info info;
@@ -27,10 +29,8 @@ int* movieStartIdx;
 int* userId; 
 double* userRating;
 
-#define MAX_NAME_LEN 10
-
 struct movie* movie_hashtable; // to record the number of rating for each movie 
-struct user* user_hashtable; // to record the number of rating for each user
+struct user* user_hashtable;   // to record the number of rating for each user
 
 void computePredictionRMSE(gsl_matrix * M, gsl_matrix * U, gsl_matrix * R);
 
@@ -48,8 +48,8 @@ void add_movie(int id, double rating) {
         new_movie -> total_rating = rating;
         HASH_ADD_INT(movie_hashtable, id, new_movie);
     } else {
-        res -> rating_num++;
-        res -> num++;
+        res -> rating_num ++;
+        res -> num ++;
         res -> total_rating += rating;
     }
 }
@@ -89,7 +89,7 @@ void add_user(int id) {
         new_user -> rating_num = 1;
         HASH_ADD_INT(user_hashtable, id, new_user);
     } else {
-        res -> rating_num++;
+        res -> rating_num ++;
     }
 }
 
@@ -113,7 +113,7 @@ int find_user(int id) {
 //-----------process input data-------------------
 //------------------------------------------------
 
-/**
+/*
  * get the input relevant stat
  */
 void getInputStat(char* inputFilename) {
@@ -208,10 +208,10 @@ void initMatrix() {
     printf("Init movie matrix\n");
     int i, j;
     for (i = 0; i < movieNum; ++i) {
-        int start_idx = i * info.numFeature;
+        int start_idx = i * info.numFeatures;
         movieMatrix[start_idx] = get_movie_average(i + 1);
         // initialize the random small value
-        for (j = 1; j < info.numFeature; ++j) {
+        for (j = 1; j < info.numFeatures; ++j) {
             movieMatrix[start_idx + j] = (rand() % 1000) / 1000.0;
         }
     }
@@ -268,25 +268,26 @@ void readInput(char* inputFilename) {
 // init basic arg
 void init(int numFeatures, int numIter, double lambda) {
     info.numIter = numIter;
-    info.numFeature = numFeatures;
+    info.numFeatures = numFeatures;
     info.lambda = lambda;
 }
 
-/**
+/*
  * allocate data structure memory 
  */
 void init_data(int userNum, int movieNum, int ratingNum) {
     printf("allocating data memory\n");
+
     userStartIdx = (int*)malloc(sizeof(int) * (userNum + 1));
-    movieId = (int*)malloc(sizeof(int) * (ratingNum + 1));
-    movieRating = (double*)malloc(sizeof(double) * (ratingNum + 1));
+    movieId =      (int*)malloc(sizeof(int) * (ratingNum + 1));
+    movieRating =  (double*)malloc(sizeof(double) * (ratingNum + 1));
 
     movieStartIdx = (int*)malloc(sizeof(int) * (movieNum + 1));
-    userId = (int*)malloc(sizeof(int) * (ratingNum + 1));
-    userRating = (double*)malloc(sizeof(double) * (ratingNum + 1));
+    userId =        (int*)malloc(sizeof(int) * (ratingNum + 1));
+    userRating =    (double*)malloc(sizeof(double) * (ratingNum + 1));
 
-    movieMatrix = (feature_t *)malloc(sizeof(feature_t) * (numFeature * movieNum));
-    userMatrix = (feature_t *)malloc(sizeof(feature_t) * (numFeature * userNum));
+    movieMatrix = (feature_t *)malloc(sizeof(feature_t) * (info.numFeatures * movieNum));
+    userMatrix =  (feature_t *)malloc(sizeof(feature_t) * (info.numFeatures * userNum));
 }
 
 //-----------------------------------------------------------------
@@ -296,10 +297,7 @@ void compute(int procID, int nproc, char* inputFilename,
              int numFeatures, int numIterations, double lambda) 
 {
     const int root = 0; // set the rank 0 processor as the root 
-    int tag = 0;
-    int source = 0;
     int span;
-    MPI_State status;
 
     // initialize
     init(numFeatures, numIterations, lambda);
@@ -310,7 +308,6 @@ void compute(int procID, int nproc, char* inputFilename,
     }
 
     /* broadcast the information of basic stat*/
-    printf("Broadcast usernum, movienum, raringnum\n");
     MPI_Bcast(&userNum, 1, MPI_INT, root, MPI_COMM_WORLD);
     MPI_Bcast(&movieNum, 1, MPI_INT, root, MPI_COMM_WORLD);
     MPI_Bcast(&ratingNum, 1, MPI_INT, root, MPI_COMM_WORLD);
@@ -342,8 +339,9 @@ void compute(int procID, int nproc, char* inputFilename,
         initMatrix();
     }
 
-    MPI_Bcast(movieMatrix, numFeature * movieNum, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(movieMatrix, numFeatures * movieNum, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
+    // initialize n_user and n_movie
     int* n_user =  (int *)malloc(sizeof(int) * userNum);
     int* n_movie = (int *)malloc(sizeof(int) * movieNum);
     int i, j;
@@ -353,9 +351,8 @@ void compute(int procID, int nproc, char* inputFilename,
     for (i = 0; i < movieNum; ++i) {
         n_movie[i] = movieStartIdx[i+1] - movieStartIdx[i];
     }
-    
-    /* Start */
-    // start iteration
+
+    // create gsl objects
     gsl_matrix * M = gsl_matrix_alloc (numFeatures, movieNum);
     gsl_matrix * U = gsl_matrix_alloc (numFeatures, userNum);
     gsl_matrix * R = gsl_matrix_alloc (userNum, movieNum);
@@ -376,15 +373,21 @@ void compute(int procID, int nproc, char* inputFilename,
     gsl_permutation *p = gsl_permutation_alloc(numFeatures);
     gsl_vector * O = gsl_vector_alloc (numFeatures);
 
-    printf("Start iteration\n");
+    /* Start */
+    // start iteration
+    if (procID == root) {
+        printf("Start iteration\n");
+        computePredictionRMSE(M, U, R);
+    }
 
     int iter = 0;
     for (iter = 0; iter < numIterations; ++iter) {
 
         // Each processor solve user feature
+        printf("Updating user (proc = %d, iter = %d)\n", procID, iter);
+
         int user_idx;
         int user_num = 0;
-        printf("Updating user (iter = %d)\n", iter);
 
         // check span
         // NOTE THE NUMBER SHOULD BE DIVISIBLE
@@ -422,7 +425,9 @@ void compute(int procID, int nproc, char* inputFilename,
         }
 
         // allgather (everyone gets a local copy of U)
-        printf("Gather information of all users\n");
+        if (procID == root) {
+            printf("Gather information of all users\n");
+        }
 
         // I am not sure whether the address will be over-written perfectly
         MPI_Allgather(&userMatrix[user_start_idx * numFeatures], 
@@ -431,12 +436,15 @@ void compute(int procID, int nproc, char* inputFilename,
                       MPI_DOUBLE, MPI_COMM_WORLD);
 
         // solver movie feature matrix
-        printf("Updating movie (iter = %d)\n", iter);
+        printf("Updating movie (proc = %d, iter = %d)\n", procID, iter);
+
         int movie_idx;
         int movie_num = 0;
+
         span = (movieNum + nproc - 1) / nproc;
         int movie_start_idx = min(procID * span, movieNum);
         int movie_end_idx = min(movie_start_idx + span, movieNum);
+
         for (movie_idx = movie_start_idx; movie_idx < movie_end_idx; ++movie_idx) {
             if (movieStartIdx[movie_idx] == movieStartIdx[movie_idx+1])
                 continue;
@@ -473,6 +481,8 @@ void compute(int procID, int nproc, char* inputFilename,
                       span * numFeatures, MPI_DOUBLE, 
                       movieMatrix, span * numFeatures, 
                       MPI_DOUBLE, MPI_COMM_WORLD);
+
+        computePredictionRMSE(M, U, R);
     }
 
     // compute prediction and rmse 
@@ -483,12 +493,12 @@ void computePredictionRMSE(gsl_matrix * M, gsl_matrix * U, gsl_matrix * R) {
     int i, j, user_idx;
 
     for (i = 0; i < movieNum; ++i)
-        for (j = 0; j < info.numFeature; ++j)
-            gsl_matrix_set(M, j, i, movieMatrix[i * info.numFeature + j]);
+        for (j = 0; j < info.numFeatures; ++j)
+            gsl_matrix_set(M, j, i, movieMatrix[i * info.numFeatures + j]);
 
     for (i = 0; i < userNum; ++i)
-        for (j = 0; j < info.numFeature; ++j)
-            gsl_matrix_set(U, j, i, userMatrix[i * info.numFeature + j]);
+        for (j = 0; j < info.numFeatures; ++j)
+            gsl_matrix_set(U, j, i, userMatrix[i * info.numFeatures + j]);
 
     gsl_blas_dgemm(CblasTrans, CblasNoTrans, 1, U, M, 0, R);
 

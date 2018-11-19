@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-//#include "mpi.h"
+#include "mpi.h"
 #include "als.h"
 #include "uthash.h"
 
@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
     double endTime;
 
     //Initialize MPI 
-    //MPI_Init(&argc, &argv);
+    MPI_Init(&argc, &argv);
 
     // Read command line arg
     do {
@@ -44,23 +44,23 @@ int main(int argc, char* argv[]) {
 
     if (inputFilename == NULL) {
         printf("Usage: %s -f <filename> [-n <numFeatures>] [-i <N_iters>] [-l <lambda>]\n", argv[0]);
-        //MPI_Finalize();
+        MPI_Finalize();
         return -1;
     }
 
     // Get process rank 
-    //MPI_Comm_rank(MPI_COMM_WORLD, &procID);
+    MPI_Comm_rank(MPI_COMM_WORLD, &procID);
 
     // Get total number of processes
-    //MPI_Comm_size(MPI_COMM_WORLD, &nproc);
+    MPI_Comm_size(MPI_COMM_WORLD, &nproc);
 
     // Run computation 
-    //startTime = MPI_Wtime();
+    startTime = MPI_Wtime();
     compute(procID, nproc, inputFilename, numFeatures, numIterations, lambda);
-    //endTime = MPI_Wtime();
+    endTime = MPI_Wtime();
 
     // Cleanup
-    //MPI_Finalize();
+    MPI_Finalize();
     printf("elapsed time for proc %d: %f\n", procID, endTime - startTime);
     return 0;
 }

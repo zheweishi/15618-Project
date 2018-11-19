@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-//#include "mpi.h"
+#include "mpi.h"
 
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_blas.h>
@@ -132,7 +132,7 @@ void getInputStat(char* inputFilename) {
     int mid = 0;
     double rating = 0;
     if ((read = getline(&line, &len, fp)) != -1) {
-        printf("Read the tag line (not useful)\n");
+        printf("Start reading file, get input stat\n");
     }
 
     while ((read = getline(&line, &len, fp)) != -1) {
@@ -203,8 +203,7 @@ void initRatingMatrix(int uid, int mid, double rating) {
 }
 
 void initMatrix() {
-    movieMatrix = (feature_t *)malloc(sizeof(feature_t) * (info.numFeature * movieNum));
-    userMatrix = (feature_t *)malloc(sizeof(feature_t) * (info.numFeature * userNum));
+    printf("Init movie matrix\n");
     int i, j;
     for (i = 0; i < movieNum; ++i) {
         int start_idx = i * info.numFeature;
@@ -225,22 +224,6 @@ void readInput(char* inputFilename) {
         exit(-1);
     }
 
-    // first get the needed parameter
-    getInputStat(inputFilename);
-
-    // initialize the data structure
-    userStartIdx = (int*)malloc(sizeof(int) * (userNum + 1));
-    movieId = (int*)malloc(sizeof(int) * (ratingNum + 1));
-    movieRating = (double*)malloc(sizeof(double) * (ratingNum + 1));
-
-    movieStartIdx = (int*)malloc(sizeof(int) * (movieNum + 1));
-    userId = (int*)malloc(sizeof(int) * (ratingNum + 1));
-    userRating = (double*)malloc(sizeof(double) * (ratingNum + 1));
-
-    // init start index 
-    initUserStartIndex();
-    initMovieStartIndex();
-
     ssize_t read;
     size_t len = 0;
     char* line = NULL;
@@ -248,7 +231,7 @@ void readInput(char* inputFilename) {
     int mid = 0;
     double rating = 0;
     if ((read = getline(&line, &len, fp)) != -1) {
-        printf("Read the tag line (not useful)\n");
+        printf("Start reading file, get rating details\n");
     }
 
     while ((read = getline(&line, &len, fp)) != -1) {
@@ -278,15 +261,30 @@ void readInput(char* inputFilename) {
         // initialize the rating matrix (use compression)
         initRatingMatrix(uid, mid, rating);
     }
-
-    // initialize movie/ user matrix
-    initMatrix();
 }
 
+// init basic arg
 void init(int numFeatures, int numIter, double lambda) {
     info.numIter = numIter;
     info.numFeature = numFeatures;
     info.lambda = lambda;
+}
+
+/**
+ * allocate data structure memory 
+ */
+void init_data(int userNum, int movieNum, int ratingNum) {
+    printf("allocating data memory\n");
+    userStartIdx = (int*)malloc(sizeof(int) * (userNum + 1));
+    movieId = (int*)malloc(sizeof(int) * (ratingNum + 1));
+    movieRating = (double*)malloc(sizeof(double) * (ratingNum + 1));
+
+    movieStartIdx = (int*)malloc(sizeof(int) * (movieNum + 1));
+    userId = (int*)malloc(sizeof(int) * (ratingNum + 1));
+    userRating = (double*)malloc(sizeof(double) * (ratingNum + 1));
+
+    movieMatrix = (feature_t *)malloc(sizeof(feature_t) * (numFeature * movieNum));
+    userMatrix = (feature_t *)malloc(sizeof(feature_t) * (numFeature * userNum));
 }
 
 //-----------------------------------------------------------------
@@ -298,19 +296,54 @@ void compute(int procID, int nproc, char* inputFilename,
     const int root = 0; // set the rank 0 processor as the root 
     int tag = 0;
     int source = 0;
-    //MPI_State status;
+    int span;
+    MPI_State status;
 
     // initialize
     init(numFeatures, numIterations, lambda);
 
     /* Read the input file and initialization */
-    //if (procID == root) {
-    readInput(inputFilename);
-    //}
+    if (procID == root) {
+        getInputStat(inputFilename);
+    }
+
+    /* broadcast the information of basic stat*/
+    printf("Broadcast usernum, movienum, raringnum\n");
+    MPI_Bcast(&userNum, 1, MPI_INT, root, MPI_COMM_WORLD);
+    MPI_Bcast(&movieNum, 1, MPI_INT, root, MPI_COMM_WORLD);
+    MPI_Bcast(&ratingNum, 1, MPI_INT, root, MPI_COMM_WORLD);
+
+    // initialize the data structure
+    init_data(userNum, movieNum, ratingNum);
+    
+    if (procID == root) {
+        initUserStartIndex();
+        initMovieStartIndex();
+    }
+    
+    /* broadcast the information about start index */
+    MPI_Bcast(userStartIdx, userNum + 1, MPI_INT, root, MPI_COMM_WORLD);
+    MPI_Bcast(movieStartIdx, movieNum + 1, MPI_INT, root, MPI_COMM_WORLD);
+   
+    /* Read the input file and get detailed rating */
+    if (procID == root) {
+        readInput(inputFilename);
+    }
+
+    MPI_Bcast(movieId, ratingNum + 1, MPI_INT, root, MPI_COMM_WORLD);
+    MPI_Bcast(movieRating, ratingNum + 1, MPI_DOUBLE, root, MPI_COMM_WORLD);
+    MPI_Bcast(userId, ratingNum + 1, MPI_INT, root, MPI_COMM_WORLD);
+    MPI_Bcast(userRating, ratingNum + 1, MPI_DOUBLE, root, MPI_COMM_WORLD);
+
+    // initialize movie/ user matrix
+    if (procID == root) {
+        initMatrix();
+    }
+
+    MPI_Bcast(movieMatrix, numFeature * movieNum, MPI_DOUBLE, root, MPI_COMM_WORLD);
 
     int* n_user =  (int *)malloc(sizeof(int) * userNum);
     int* n_movie = (int *)malloc(sizeof(int) * movieNum);
-
     int i, j;
     for (i = 0; i < userNum; ++i) {
         n_user[i] = userStartIdx[i+1] - userStartIdx[i];
@@ -318,13 +351,8 @@ void compute(int procID, int nproc, char* inputFilename,
     for (i = 0; i < movieNum; ++i) {
         n_movie[i] = movieStartIdx[i+1] - movieStartIdx[i];
     }
-
-    /* broadcast the movie matrix */
-    
     
     /* Start */
-    // each processor load the corresponding rating matrix of users/ movies
-
     // start iteration
     gsl_matrix * M = gsl_matrix_alloc (numFeatures, movieNum);
     gsl_matrix * U = gsl_matrix_alloc (numFeatures, userNum);
@@ -354,7 +382,14 @@ void compute(int procID, int nproc, char* inputFilename,
         int user_idx;
         int user_num = 0;
         printf("Updating user (iter = %d)\n", iter);
-        for (user_idx = 0; user_idx < userNum; ++user_idx) {
+
+        // check span
+        // NOTE THE NUMBER SHOULD BE DIVISIBLE
+        span = (userNum + nproc - 1) / nproc;
+        int user_start_idx = min(procID * span, userNum);
+        int user_end_idx = min(user_start_idx + span, userNum);
+
+        for (user_idx = user_start_idx; user_idx < user_end_idx; ++user_idx) {
             user_num++;
 
             gsl_matrix_set_zero (M);
@@ -383,15 +418,23 @@ void compute(int procID, int nproc, char* inputFilename,
                 userMatrix[user_idx * numFeatures + j] = gsl_vector_get(O, j);
         }
 
-        printf("Updated %d users\n", user_num);
-
         // allgather (everyone gets a local copy of U)
+        printf("Gather information of all users\n");
+
+        // I am not sure whether the address will be over-written perfectly
+        MPI_Allgather(&userMatrix[user_start_idx * numFeatures], 
+                      span * numFeatures, MPI_DOUBLE, 
+                      userMatrix, span * numFeatures, 
+                      MPI_DOUBLE, MPI_COMM_WORLD);
 
         // solver movie feature matrix
         printf("Updating movie (iter = %d)\n", iter);
         int movie_idx;
         int movie_num = 0;
-        for (movie_idx = 0; movie_idx < movieNum; ++movie_idx) {
+        span = (movieNum + nproc - 1) / nproc;
+        int movie_start_idx = min(procID * span, movieNum);
+        int movie_end_idx = min(movie_start_idx + span, movieNum);
+        for (movie_idx = movie_start_idx; movie_idx < movie_end_idx; ++movie_idx) {
             if (movieStartIdx[movie_idx] == movieStartIdx[movie_idx+1])
                 continue;
 
@@ -422,10 +465,11 @@ void compute(int procID, int nproc, char* inputFilename,
                 movieMatrix[movie_idx * numFeatures + j] = gsl_vector_get(O, j);
         }
 
-        printf("Updated %d movies\n", movie_num);
-
         // allgather (everyone gets a local copy of M)
-
+        MPI_Allgather(&movieMatrix[movie_start_idx * numFeatures], 
+                      span * numFeatures, MPI_DOUBLE, 
+                      movieMatrix, span * numFeatures, 
+                      MPI_DOUBLE, MPI_COMM_WORLD);
     }
 
     // compute prediction and rmse 

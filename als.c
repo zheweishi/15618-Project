@@ -32,6 +32,8 @@ double* userRating;
 struct movie* movie_hashtable; // to record the number of rating for each movie 
 struct user* user_hashtable; // to record the number of rating for each user
 
+void computePredictionRMSE(gsl_matrix * M, gsl_matrix * U, gsl_matrix * R);
+
 //---------------------------------------------
 //------- helper function for hashtable--------
 //--------------------------------------------- 
@@ -356,6 +358,7 @@ void compute(int procID, int nproc, char* inputFilename,
     // start iteration
     gsl_matrix * M = gsl_matrix_alloc (numFeatures, movieNum);
     gsl_matrix * U = gsl_matrix_alloc (numFeatures, userNum);
+    gsl_matrix * R = gsl_matrix_alloc (userNum, movieNum);
 
     gsl_matrix * A = gsl_matrix_alloc (numFeatures, numFeatures);
     gsl_matrix * Ainv = gsl_matrix_alloc (numFeatures, numFeatures);
@@ -474,4 +477,28 @@ void compute(int procID, int nproc, char* inputFilename,
 
     // compute prediction and rmse 
 
+}
+
+void computePredictionRMSE(gsl_matrix * M, gsl_matrix * U, gsl_matrix * R) {
+    int i, j, user_idx;
+
+    for (i = 0; i < movieNum; ++i)
+        for (j = 0; j < info.numFeature; ++j)
+            gsl_matrix_set(M, j, i, movieMatrix[i * info.numFeature + j]);
+
+    for (i = 0; i < userNum; ++i)
+        for (j = 0; j < info.numFeature; ++j)
+            gsl_matrix_set(U, j, i, userMatrix[i * info.numFeature + j]);
+
+    gsl_blas_dgemm(CblasTrans, CblasNoTrans, 1, U, M, 0, R);
+
+    double rmse = 0;
+
+    for (user_idx = 0; user_idx < userNum; ++user_idx)
+        for (i = userStartIdx[user_idx]; i < userStartIdx[user_idx+1]; ++i) {
+            double diff = movieRating[i] - gsl_matrix_get(R, user_idx, movieId[i] - 1);
+            rmse += diff * diff;
+        }
+
+    printf("RMSE = %f\n", rmse / ratingNum);
 }

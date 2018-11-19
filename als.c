@@ -275,8 +275,11 @@ void init(int numFeatures, int numIter, double lambda) {
 /*
  * allocate data structure memory 
  */
-void init_data(int userNum, int movieNum, int ratingNum) {
+void init_data(int userNum, int movieNum, int ratingNum, int nproc) {
     printf("allocating data memory\n");
+
+    int movieSpan = (movieNum + nproc - 1) / nproc;
+    int userSpan = (userNum + nproc - 1) / nproc;
 
     userStartIdx = (int*)malloc(sizeof(int) * (userNum + 1));
     movieId =      (int*)malloc(sizeof(int) * (ratingNum + 1));
@@ -286,8 +289,8 @@ void init_data(int userNum, int movieNum, int ratingNum) {
     userId =        (int*)malloc(sizeof(int) * (ratingNum + 1));
     userRating =    (double*)malloc(sizeof(double) * (ratingNum + 1));
 
-    movieMatrix = (feature_t *)malloc(sizeof(feature_t) * (info.numFeatures * movieNum));
-    userMatrix =  (feature_t *)malloc(sizeof(feature_t) * (info.numFeatures * userNum));
+    movieMatrix = (feature_t *)malloc(sizeof(feature_t) * (info.numFeatures * movieSpan * nproc));
+    userMatrix =  (feature_t *)malloc(sizeof(feature_t) * (info.numFeatures * userSpan * nproc));
 }
 
 //-----------------------------------------------------------------
@@ -313,7 +316,7 @@ void compute(int procID, int nproc, char* inputFilename,
     MPI_Bcast(&ratingNum, 1, MPI_INT, root, MPI_COMM_WORLD);
 
     // initialize the data structure
-    init_data(userNum, movieNum, ratingNum);
+    init_data(userNum, movieNum, ratingNum, nproc);
     
     if (procID == root) {
         initUserStartIndex();

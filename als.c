@@ -303,6 +303,11 @@ void compute(int procID, int nproc, char* inputFilename,
     // initialize
     init(numFeatures, numIterations, lambda);
 
+    /* Read the input file and initialization */
+    //if (procID == root) {
+    readInput(inputFilename);
+    //}
+
     int* n_user =  (int *)malloc(sizeof(int) * userNum);
     int* n_movie = (int *)malloc(sizeof(int) * movieNum);
 
@@ -312,11 +317,6 @@ void compute(int procID, int nproc, char* inputFilename,
     }
     for (i = 0; i < movieNum; ++i) {
         n_movie[i] = movieStartIdx[i+1] - movieStartIdx[i];
-    }
-
-    /* Read the input file and initialization */
-    if (procID == root) {
-        readInput(inputFilename);
     }
 
     /* broadcast the movie matrix */
@@ -352,8 +352,10 @@ void compute(int procID, int nproc, char* inputFilename,
 
         // Each processor solve user feature
         int user_idx;
+        int user_num = 0;
+        printf("Updating user (iter = %d)\n", iter);
         for (user_idx = 0; user_idx < userNum; ++user_idx) {
-            printf("Updating user %d (iter = %d)\n", user_idx, iter);
+            user_num++;
 
             gsl_matrix_set_zero (M);
             for (i = userStartIdx[user_idx]; i < userStartIdx[user_idx+1]; ++i)
@@ -381,19 +383,19 @@ void compute(int procID, int nproc, char* inputFilename,
                 userMatrix[user_idx * numFeatures + j] = gsl_vector_get(O, j);
         }
 
-        for (user_idx = 0; user_idx < userNum; ++user_idx) {
-            for (j = 0; j < numFeatures; ++j)
-                printf("%f ", userMatrix[user_idx * numFeatures + j]);
-            printf("\n");
-        }
+        printf("Updated %d users\n", user_num);
 
         // allgather (everyone gets a local copy of U)
 
         // solver movie feature matrix
+        printf("Updating movie (iter = %d)\n", iter);
         int movie_idx;
+        int movie_num = 0;
         for (movie_idx = 0; movie_idx < movieNum; ++movie_idx) {
-            printf("Updating movie %d (iter = %d)\n", movie_idx, iter);
+            if (movieStartIdx[movie_idx] == movieStartIdx[movie_idx+1])
+                continue;
 
+            movie_num++;
             gsl_matrix_set_zero (U);
             for (i = movieStartIdx[movie_idx]; i < movieStartIdx[movie_idx+1]; ++i)
                 for (j = 0; j < numFeatures; ++j)
@@ -410,8 +412,6 @@ void compute(int procID, int nproc, char* inputFilename,
 
             gsl_blas_dgemv(CblasNoTrans, 1, U, Ru, 0, V); // V = U R^T
 
-            gsl_matrix_fprintf(stdout, A, "%f");
-
             int s;
             gsl_linalg_LU_decomp(A, p, &s);
             gsl_linalg_LU_invert(A, p, Ainv);
@@ -421,6 +421,8 @@ void compute(int procID, int nproc, char* inputFilename,
             for (j = 0; j < numFeatures; ++j)
                 movieMatrix[movie_idx * numFeatures + j] = gsl_vector_get(O, j);
         }
+
+        printf("Updated %d movies\n", movie_num);
 
         // allgather (everyone gets a local copy of M)
 

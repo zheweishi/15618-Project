@@ -281,16 +281,16 @@ void init_data(int userNum, int movieNum, int ratingNum, int nproc) {
     int movieSpan = (movieNum + nproc - 1) / nproc;
     int userSpan = (userNum + nproc - 1) / nproc;
 
-    userStartIdx = (int*)calloc(sizeof(int) * (userNum + 1));
-    movieId =      (int*)calloc(sizeof(int) * (ratingNum + 1));
-    movieRating =  (double*)calloc(sizeof(double) * (ratingNum + 1));
+    userStartIdx = (int*)calloc(userNum + 1, sizeof(int));
+    movieId =      (int*)calloc(ratingNum + 1, sizeof(int));
+    movieRating =  (double*)calloc(ratingNum + 1, sizeof(double));
 
-    movieStartIdx = (int*)calloc(sizeof(int) * (movieNum + 1));
-    userId =        (int*)calloc(sizeof(int) * (ratingNum + 1));
-    userRating =    (double*)calloc(sizeof(double) * (ratingNum + 1));
+    movieStartIdx = (int*)calloc(movieNum + 1, sizeof(int));
+    userId =        (int*)calloc(ratingNum + 1, sizeof(int));
+    userRating =    (double*)calloc(ratingNum + 1, sizeof(double));
 
-    movieMatrix = (feature_t *)calloc(sizeof(feature_t) * (info.numFeatures * movieSpan * nproc));
-    userMatrix =  (feature_t *)calloc(sizeof(feature_t) * (info.numFeatures * userSpan * nproc));
+    movieMatrix = (feature_t *)calloc(info.numFeatures * movieSpan * nproc, sizeof(feature_t));
+    userMatrix =  (feature_t *)calloc(info.numFeatures * userSpan * nproc, sizeof(feature_t));
 }
 
 //-----------------------------------------------------------------
@@ -488,7 +488,35 @@ void compute(int procID, int nproc, char* inputFilename,
         if (procID == root) {
             computePredictionRMSE(M, U, R);
         }
+
     }
+
+    gsl_matrix_free (M);
+    gsl_matrix_free (U);
+    gsl_matrix_free (R);
+    gsl_matrix_free (A);
+    gsl_matrix_free (Ainv);
+    gsl_matrix_free (E);
+    gsl_matrix_free (F);
+
+    gsl_vector_free (V);
+    gsl_vector_free (Rm);
+    gsl_vector_free (Ru);
+    gsl_vector_free (O);
+
+    gsl_permutation_free (p);
+
+    free(n_user);
+    free(n_movie);
+
+    free(userStartIdx);
+    free(movieId);
+    free(movieRating);
+    free(movieStartIdx);
+    free(userId);
+    free(userRating);
+    free(movieMatrix);
+    free(userMatrix);
 }
 
 void computePredictionRMSE(gsl_matrix * M, gsl_matrix * U, gsl_matrix * R) {

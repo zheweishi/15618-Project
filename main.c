@@ -10,7 +10,7 @@ int main(int argc, char* argv[]) {
     int nproc;
     int opt = 0;
     char* inputFilename = NULL;
-    int numIterations = 15;
+    int numIterations = 30;
     double lambda = 0.065;
     int numFeatures = 10; 
     double startTime;

@@ -281,16 +281,16 @@ void init_data(int userNum, int movieNum, int ratingNum, int nproc) {
     int movieSpan = (movieNum + nproc - 1) / nproc;
     int userSpan = (userNum + nproc - 1) / nproc;
 
-    userStartIdx = (int*)malloc(sizeof(int) * (userNum + 1));
-    movieId =      (int*)malloc(sizeof(int) * (ratingNum + 1));
-    movieRating =  (double*)malloc(sizeof(double) * (ratingNum + 1));
+    userStartIdx = (int*)calloc(sizeof(int) * (userNum + 1));
+    movieId =      (int*)calloc(sizeof(int) * (ratingNum + 1));
+    movieRating =  (double*)calloc(sizeof(double) * (ratingNum + 1));
 
-    movieStartIdx = (int*)malloc(sizeof(int) * (movieNum + 1));
-    userId =        (int*)malloc(sizeof(int) * (ratingNum + 1));
-    userRating =    (double*)malloc(sizeof(double) * (ratingNum + 1));
+    movieStartIdx = (int*)calloc(sizeof(int) * (movieNum + 1));
+    userId =        (int*)calloc(sizeof(int) * (ratingNum + 1));
+    userRating =    (double*)calloc(sizeof(double) * (ratingNum + 1));
 
-    movieMatrix = (feature_t *)malloc(sizeof(feature_t) * (info.numFeatures * movieSpan * nproc));
-    userMatrix =  (feature_t *)malloc(sizeof(feature_t) * (info.numFeatures * userSpan * nproc));
+    movieMatrix = (feature_t *)calloc(sizeof(feature_t) * (info.numFeatures * movieSpan * nproc));
+    userMatrix =  (feature_t *)calloc(sizeof(feature_t) * (info.numFeatures * userSpan * nproc));
 }
 
 //-----------------------------------------------------------------

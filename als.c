@@ -387,7 +387,9 @@ void compute(int procID, int nproc, char* inputFilename,
     for (iter = 0; iter < numIterations; ++iter) {
 
         // Each processor solve user feature
-        printf("Updating user (proc = %d, iter = %d)\n", procID, iter);
+        if (procID == root) {
+            printf("Updating user (iter = %d)\n", iter);
+        }
 
         int user_idx;
         int user_num = 0;
@@ -404,7 +406,7 @@ void compute(int procID, int nproc, char* inputFilename,
             gsl_matrix_set_zero (M);
             for (i = userStartIdx[user_idx]; i < userStartIdx[user_idx+1]; ++i)
                 for (j = 0; j < numFeatures; ++j)
-                    gsl_matrix_set(M, j, i - userStartIdx[user_idx], movieMatrix[movieId[i] * numFeatures + j]);
+                    gsl_matrix_set(M, j, i - userStartIdx[user_idx], movieMatrix[(movieId[i]-1) * numFeatures + j]);
 
             gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1, M, M, 0, A);
             gsl_matrix_memcpy(F, E);
@@ -428,18 +430,15 @@ void compute(int procID, int nproc, char* inputFilename,
         }
 
         // allgather (everyone gets a local copy of U)
-        if (procID == root) {
-            printf("Gather information of all users\n");
-        }
-
-        // I am not sure whether the address will be over-written perfectly
         MPI_Allgather(&userMatrix[user_start_idx * numFeatures], 
                       span * numFeatures, MPI_DOUBLE, 
                       userMatrix, span * numFeatures, 
                       MPI_DOUBLE, MPI_COMM_WORLD);
 
         // solver movie feature matrix
-        printf("Updating movie (proc = %d, iter = %d)\n", procID, iter);
+        if (procID == root) {
+            printf("Updating movie (iter = %d)\n", iter);
+        }
 
         int movie_idx;
         int movie_num = 0;
@@ -456,7 +455,7 @@ void compute(int procID, int nproc, char* inputFilename,
             gsl_matrix_set_zero (U);
             for (i = movieStartIdx[movie_idx]; i < movieStartIdx[movie_idx+1]; ++i)
                 for (j = 0; j < numFeatures; ++j)
-                    gsl_matrix_set(U, j, i - movieStartIdx[movie_idx], userMatrix[userId[i] * numFeatures + j]);
+                    gsl_matrix_set(U, j, i - movieStartIdx[movie_idx], userMatrix[(userId[i]-1) * numFeatures + j]);
 
             gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1, U, U, 0, A);
             gsl_matrix_memcpy(F, E);
@@ -485,11 +484,11 @@ void compute(int procID, int nproc, char* inputFilename,
                       movieMatrix, span * numFeatures, 
                       MPI_DOUBLE, MPI_COMM_WORLD);
 
-        computePredictionRMSE(M, U, R);
+        // compute prediction and rmse 
+        if (procID == root) {
+            computePredictionRMSE(M, U, R);
+        }
     }
-
-    // compute prediction and rmse 
-
 }
 
 void computePredictionRMSE(gsl_matrix * M, gsl_matrix * U, gsl_matrix * R) {

@@ -8,6 +8,9 @@
 
 #include <cstdio>
 #include <omp.h>
+#include <tr1/unordered_map>
+
+using namespace std::tr1;
 
 typedef double feature_t;
 
@@ -17,7 +20,7 @@ int get_option_int(const char *option_name, int default_value);
 float get_option_float(const char *option_name, float default_value);
 
 /* My functions */
-void constructRatingMatrix(const char* input_filename, feature_t* rating_matrix, int movie_num);
+void constructRatingMatrix(const char* input_filename, feature_t* rating_matrix, int movie_num, unordered_map<int, int>& mid_map);
 void add_movie(int mid, int& movie_num, unordered_map<int, int>& mid_map);
 void getInputStat(char* inputFilename, int& user_num, int& movie_num, unordered_map<int, int>& mid_map);
 void initMatrix(feature_t* user_matrix, feature_t* movie_matrix, int movie_num, int user_num, int feature_num);

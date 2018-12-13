@@ -14,19 +14,19 @@ cpu: CXXFLAGS = -I. -O3 -Wall -fopenmp -Wno-unknown-pragmas
 
 # Compilation Rules
 $(APP_NAME): $(OBJS)
-    $(CXX) $(CXXFLAGS) -o $@ $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
 
 cpu: $(OBJS)
-    $(CXX) $(CXXFLAGS) -o $(APP_NAME) $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(APP_NAME) $(OBJS)
 
 %.o: %.cpp
-    $(CXX) $< $(CXXFLAGS) -c -o $@
+	$(CXX) $< $(CXXFLAGS) -c -o $@
 
 submit:
-    cd templates && ../scripts/batch_generate.sh 
-    cd job_outputs && ../scripts/sub/submit.sh
+	cd templates && ../scripts/batch_generate.sh 
+	cd job_outputs && ../scripts/sub/submit.sh
 clean:
-    /bin/rm -rf *~ *.o $(APP_NAME) templates/$(USER)_*.job job_outputs/$(USER)_* file_outputs/*
+	/bin/rm -rf *~ *.o $(APP_NAME) templates/$(USER)_*.job job_outputs/$(USER)_* file_outputs/*
 
 # For a given rule:
 # $< = first prerequisite

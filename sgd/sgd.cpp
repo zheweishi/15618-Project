@@ -6,16 +6,19 @@
 #include <cstdlib>
 #include <cstring>
 #include <assert.h>
-#include <unordered_map>
+#include <string.h>
+#include <cstring>
+#include <tr1/unordered_map>
 #include <vector>
 #include <omp.h>
 #include "mic.h"
+
+using namespace std::tr1;
 
 #define BUFSIZE 1024
 
 static int _argc;
 static const char **_argv;
-
 
 
 /* Starter code function, don't touch */
@@ -63,10 +66,10 @@ static void show_help(const char *program_path)
 /**
  * add the rating value into the matrix
  */
-void constructRatingMatrix(const char* input_filename, feature_t* rating_matrix, int movie_num) {
-    FILE* fp = fopen(inputFilename, "r");   
+void constructRatingMatrix(const char* input_filename, feature_t* rating_matrix, int movie_num, unordered_map<int, int>& mid_map) {
+    FILE* fp = fopen(input_filename, "r");   
     if (fp == NULL) {
-        fprintf(stderr, "construct Rating Matrix: Failed to read input file %s\n", inputFilename);
+        fprintf(stderr, "construct Rating Matrix: Failed to read input file %s\n", input_filename);
         exit(-1);
     }
 
@@ -91,7 +94,7 @@ void constructRatingMatrix(const char* input_filename, feature_t* rating_matrix,
         while (comma_cnt < 3) {
             if (*tmp == ',') {
                 word_len = tmp - last_pos;
-                char tmpbuf[MAX_NAME_LEN] = "";
+                char tmpbuf[BUFSIZE] = "";
                 strncpy(tmpbuf, last_pos, word_len);
                 if (comma_cnt == 0) {
                     uid = atoi(tmpbuf);
@@ -106,7 +109,7 @@ void constructRatingMatrix(const char* input_filename, feature_t* rating_matrix,
             tmp++;
         }
         // add the rating into matrix
-        int idx = (uid - 1) * movie_num + mid;
+        int idx = (uid - 1) * movie_num + mid_map[mid];
         rating_matrix[idx] = rating;
     }
 }
@@ -126,7 +129,7 @@ void add_movie(int mid, int& movie_num, unordered_map<int, int>& mid_map) {
  * get user/ movie number
  * reallocate movie ID from 0 - N
  */
-void getInputStat(char* inputFilename, int& user_num, int& movie_num, unordered_map<int, int>& mid_map) {
+void getInputStat(const char* inputFilename, int& user_num, int& movie_num, unordered_map<int, int>& mid_map) {
     FILE* fp = fopen(inputFilename, "r");
     if (fp == NULL) {
         fprintf(stderr, "Failed to read input file %s\n", inputFilename);
@@ -154,7 +157,7 @@ void getInputStat(char* inputFilename, int& user_num, int& movie_num, unordered_
         while (comma_cnt < 3) {
             if (*tmp == ',') {
                 word_len = tmp - last_pos;
-                char tmpbuf[MAX_NAME_LEN] = "";
+                char tmpbuf[BUFSIZE] = "";
                 strncpy(tmpbuf, last_pos, word_len);
                 if (comma_cnt == 0) {
                     uid = atoi(tmpbuf);
@@ -169,7 +172,7 @@ void getInputStat(char* inputFilename, int& user_num, int& movie_num, unordered_
             tmp++;
         }
         add_movie(mid, movie_num, mid_map);  // keep record of rating number for each movie
-        user_num = max(user_num, uid);
+        user_num = std::max(user_num, uid);
     }
     printf("There are %d users, %d movies\n", user_num, movie_num);
 }
@@ -234,14 +237,14 @@ void update_user_movie_matrix(int user_start_idx, int movie_start_idx,
             int idx = i * movie_num + j;
             if (rating_matrix[idx] == 0) continue;
 
-            feature_t predicted_val = vector_dot(user_matrix[i * feature_num], movie_matrix[j * feature_num], feature_num);
+            feature_t predicted_val = vector_dot(&user_matrix[i * feature_num], &movie_matrix[j * feature_num], feature_num);
             feature_t error_u_v = rating_matrix[idx] - predicted_val;
 
-            feature_t* tmp_user = (feature_t*)malloc(sizeof(feature_t) * feature_num, 0);
-            memncpy(tmp_user, user_matrix[i * feature_num], sizeof(feature_t) * feature_num);
+            feature_t* tmp_user = (feature_t*)malloc(sizeof(feature_t) * feature_num);
+            memcpy(tmp_user, &user_matrix[i * feature_num], sizeof(feature_t) * feature_num);
 
-            update(user_matrix[i * feature_num], movie_matrix[j * feature_num], lambda_user, error_u_v, lr, feature_num);
-            update(movie_matrix[j * feature_num], tmp_user, lambda_movie, error_u_v, lr, feature_num);
+            update(&user_matrix[i * feature_num], &movie_matrix[j * feature_num], lambda_user, error_u_v, lr, feature_num);
+            update(&movie_matrix[j * feature_num], tmp_user, lambda_movie, error_u_v, lr, feature_num);
 
             free(tmp_user);
         }
@@ -260,7 +263,7 @@ void computePredictionRMSE(feature_t* user_matrix, feature_t* movie_matrix, feat
             int idx = i * movie_num + j;
             if (rating_matrix[idx] == 0) continue;
             ratingNum++;
-            feature_t predicted_val = vector_dot(user_matrix[i * feature_num], movie_matrix[j * feature_num], feature_num);
+            feature_t predicted_val = vector_dot(&user_matrix[i * feature_num], &movie_matrix[j * feature_num], feature_num);
             feature_t diff = rating_matrix[idx] - predicted_val;
             rmse += diff * diff;
         }
@@ -325,7 +328,7 @@ int main(int argc, const char *argv[])
   feature_t *movie_matrix = (feature_t *)calloc(movie_num * feature_num, sizeof(feature_t));
 
   /* initialize rating/ user/ movie matrix */
-  constructRatingMatrix(input_filename, rating_matrix, movie_num);
+  constructRatingMatrix(input_filename, rating_matrix, movie_num, mid_map);
   initMatrix(user_matrix, movie_matrix, movie_num, user_num, feature_num); 
 
   init_time += duration_cast<dsec>(Clock::now() - init_start).count();
@@ -363,10 +366,10 @@ int main(int argc, const char *argv[])
         for (int iter = 0; iter < num_of_threads; ++iter) {
 
             // allocate independent blocks to different threads
-            vector<int> user_start_idx(num_of_threads, 0);
-            vector<int> movie_start_idx(num_of_threads, 0);
-            vector<int> user_end_idx(num_of_threads, 0);
-            vector<int> movie_end_idx(num_of_threads, 0);
+            std::vector<int> user_start_idx(num_of_threads, 0);
+            std::vector<int> movie_start_idx(num_of_threads, 0);
+            std::vector<int> user_end_idx(num_of_threads, 0);
+            std::vector<int> movie_end_idx(num_of_threads, 0);
             for (int idx = 0; idx < num_of_threads; ++idx) {
                 int block_idx = (iter + idx) % num_of_threads;
                 user_start_idx[idx] = std::min(block_idx * user_span, user_num);

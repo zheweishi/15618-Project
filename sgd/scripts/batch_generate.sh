@@ -1,8 +1,8 @@
 #/usr/bin/env bash
 # generate jobs in batch
 
-threads=(64 128 240) # The number of threads 
-inputs=(timeinput/easy_4096.txt) # The name of the input files
+threads=(16) # The number of threads 
+inputs=(rating.csv) # The name of the input files
 rm -f *.job
 
 for f in ${inputs[@]}

@@ -359,6 +359,10 @@ int main(int argc, const char *argv[])
     int user_span = (user_num + num_of_threads - 1) / num_of_threads;
     int movie_span = (movie_num + num_of_threads - 1) / num_of_threads;
 
+    printf("Before optimization\n");
+    computePredictionRMSE(user_matrix, movie_matrix, rating_matrix, 
+                          user_num, movie_num, feature_num);
+
     /* start optimization */
     for (int out_iter = 0; out_iter < iters; ++out_iter) {
 

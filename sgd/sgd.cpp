@@ -402,18 +402,3 @@ int main(int argc, const char *argv[])
   compute_time += duration_cast<dsec>(Clock::now() - compute_start).count();
   printf("Computation Time: %lf.\n", compute_time);   
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

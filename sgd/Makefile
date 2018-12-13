@@ -1,4 +1,4 @@
-APP_NAME=sgd
+APP_NAME=dsgd
 
 OBJS=sgd.o
 

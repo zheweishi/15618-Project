@@ -268,6 +268,7 @@ void computePredictionRMSE(feature_t* user_matrix, feature_t* movie_matrix, feat
             rmse += diff * diff;
         }
     }
+    //printf("Rating num is %d, rmse is %f\n", ratingNum, rmse);
     printf("RMSE = %f\n", rmse / ratingNum);
 }
 
@@ -294,7 +295,7 @@ int main(int argc, const char *argv[])
   /* You'll want to use these parameters in your algorithm */
   const char *input_filename = get_option_string("-f", NULL);
   int num_of_threads = get_option_int("-n", 1);
-  int iters = get_option_int("-i", 5);
+  int iters = get_option_int("-i", 20);
   int feature_num = get_option_int("-t", 10);
   float learning_rate = get_option_float("-l", 0.0001);
 
@@ -401,8 +402,9 @@ int main(int argc, const char *argv[])
         }
 
         /* test RMSE */
+        printf("After iteration %d\n", out_iter);
         computePredictionRMSE(user_matrix, movie_matrix, rating_matrix, 
-                            user_num, movie_num, feature_num);
+                              user_num, movie_num, feature_num);
     }
   }
 

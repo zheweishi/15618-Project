@@ -229,15 +229,17 @@ void update_user_movie_matrix(int user_start_idx, int movie_start_idx,
                               int movie_num, feature_t* rating_matrix, feature_t* user_matrix, 
                               feature_t* movie_matrix, feature_t lr, int feature_num) {
     int i, j;
+    int block_rating_num = 0;
 
     // tunable lambda
     feature_t lambda_user = 0.001;
     feature_t lambda_movie = 0.001;
-
+    
     for (i = user_start_idx; i < user_end_idx; ++i) {
         for (j = movie_start_idx; j < movie_end_idx; ++j) {
             int idx = i * movie_num + j;
             if (rating_matrix[idx] == 0) continue;
+            block_rating_num++; 
 
             feature_t predicted_val = vector_dot(&user_matrix[i * feature_num], &movie_matrix[j * feature_num], feature_num);
             feature_t error_u_v = rating_matrix[idx] - predicted_val;
@@ -251,6 +253,37 @@ void update_user_movie_matrix(int user_start_idx, int movie_start_idx,
             free(tmp_user);
         }
     }
+}
+
+/**
+ * shuffle the rating matrix to balance workload
+ */
+void shuffleRatingMatrix(feature_t* rating_matrix, int user_num, int movie_num, int feature_num) {
+    // firstly random generate the user / movie identity
+    std::vector<int> user_id;
+    std::vector<int> movie_id;
+    for (int i = 0; i < movie_num; ++i) {
+        movie_id.push_back(i);
+    }
+    for (int i = 0; i < user_num; ++i) {
+        user_id.push_back(i);
+    }
+    std::random_shuffle(user_id.begin(), user_id.end());
+    std::random_shuffle(movie_id.begin(), movie_id.end());
+
+    // shuffle the matrix according to the order
+    feature_t* shuffle_rating = (feature_t *)calloc(user_num * movie_num, sizeof(feature_t));
+    for (int i = 0; i < user_num; ++i) {
+        for (int j = 0; j < movie_num; ++j) {
+            int new_idx = i * movie_num + j;
+            int old_idx = user_id[i] * movie_num + movie_id[j];
+            shuffle_rating[new_idx] = rating_matrix[old_idx]; 
+        }
+    }
+
+    // copy back
+    memcpy(rating_matrix, shuffle_rating, sizeof(feature_t) * user_num * movie_num);
+    free(shuffle_rating);
 }
 
 
@@ -343,6 +376,10 @@ int main(int argc, const char *argv[])
   constructRatingMatrix(input_filename, rating_matrix, movie_num, mid_map);
   initMatrix(user_matrix, movie_matrix, movie_num, user_num, feature_num); 
 
+  /* random shuffling to balance workload */
+  shuffleRatingMatrix(rating_matrix, user_num, movie_num, feature_num);
+
+
   init_time += duration_cast<dsec>(Clock::now() - init_start).count();
   printf("Initialization Time: %lf.\n", init_time);
 
@@ -388,8 +425,10 @@ int main(int argc, const char *argv[])
             std::vector<int> movie_end_idx(num_of_threads, 0);
             for (int idx = 0; idx < num_of_threads; ++idx) {
                 int block_idx = (iter + idx) % num_of_threads;
-                user_start_idx[idx] = std::min(block_idx * user_span, user_num);
-                user_end_idx[idx] = std::min((block_idx + 1) * user_span, user_num);
+                
+                user_start_idx[idx] = std::min(idx * user_span, user_num);
+                user_end_idx[idx] = std::min((idx + 1) * user_span, user_num);
+
                 movie_start_idx[idx] = std::min(block_idx * movie_span, movie_num);
                 movie_end_idx[idx] = std::min((block_idx + 1) * movie_span, movie_num);
             }

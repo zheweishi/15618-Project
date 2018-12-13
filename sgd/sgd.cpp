@@ -110,6 +110,7 @@ void constructRatingMatrix(const char* input_filename, feature_t* rating_matrix,
         }
         // add the rating into matrix
         int idx = (uid - 1) * movie_num + mid_map[mid];
+        // printf("The uid %d, the mid %d, the idx is %d, rating: %f\n", uid, mid_map[mid], idx, rating);
         rating_matrix[idx] = rating;
     }
 }
@@ -142,12 +143,13 @@ void getInputStat(const char* inputFilename, int& user_num, int& movie_num, unor
     int uid = 0;
     int mid = 0;
     double rating = 0;
+    int rating_num = 0;
     if ((read = getline(&line, &len, fp)) != -1) {
         printf("Start reading file, get input stat\n");
     }
 
     while ((read = getline(&line, &len, fp)) != -1) {
-
+        rating_num++;
         // split the data line with comma
         char* tmp = line;
         char* last_pos = line;
@@ -174,7 +176,7 @@ void getInputStat(const char* inputFilename, int& user_num, int& movie_num, unor
         add_movie(mid, movie_num, mid_map);  // keep record of rating number for each movie
         user_num = std::max(user_num, uid);
     }
-    printf("There are %d users, %d movies\n", user_num, movie_num);
+    printf("There are %d users, %d movies, %d ratings\n", user_num, movie_num, rating_num);
 }
 
 /**
@@ -295,7 +297,7 @@ int main(int argc, const char *argv[])
   /* You'll want to use these parameters in your algorithm */
   const char *input_filename = get_option_string("-f", NULL);
   int num_of_threads = get_option_int("-n", 1);
-  int iters = get_option_int("-i", 20);
+  int iters = get_option_int("-i", 30);
   int feature_num = get_option_int("-t", 10);
   float learning_rate = get_option_float("-l", 0.0001);
 
@@ -325,8 +327,17 @@ int main(int argc, const char *argv[])
 
 
   feature_t *rating_matrix = (feature_t *)calloc(movie_num * user_num, sizeof(feature_t));
+  if (rating_matrix == NULL) {
+      printf("Error in initializing rating matrix\n");
+  }
   feature_t *user_matrix = (feature_t *)calloc(user_num * feature_num, sizeof(feature_t));
+  if (user_matrix == NULL) {
+      printf("Error in initializing rating matrix\n");
+  }
   feature_t *movie_matrix = (feature_t *)calloc(movie_num * feature_num, sizeof(feature_t));
+  if (movie_matrix == NULL) {
+      printf("Error in initializing rating matrix\n");
+  }
 
   /* initialize rating/ user/ movie matrix */
   constructRatingMatrix(input_filename, rating_matrix, movie_num, mid_map);

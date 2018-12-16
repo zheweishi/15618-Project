@@ -8,7 +8,7 @@ Project Webpage: [https://zheweishi.github.io/15618-Project/](https://zheweishi.
 
 ## [Checkpoint](https://zheweishi.github.io/15618-Project/checkpoint.html)
 
-## [Final Report](https://zheweishi.github.io/15618-Project/submit_report.pdf)
+## [Final Report (pdf)](https://zheweishi.github.io/15618-Project/submit_report.pdf)
 
 ## Project Schedule
 

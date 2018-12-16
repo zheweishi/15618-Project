@@ -4,6 +4,12 @@ Team Members: Zhewei Shi (zheweis), Weijie Chen (weijiec)
 
 Project Webpage: [https://zheweishi.github.io/15618-Project/](https://zheweishi.github.io/15618-Project/)
 
+## [Project Proposal](https://zheweishi.github.io/15618-Project/proposal.html)
+
+## [Checkpoint Report](https://zheweishi.github.io/15618-Project/checkpoint.html)
+
+## Final Report
+
 ## Project Schedule
 
 | Date | Goal |
@@ -20,9 +26,3 @@ Project Webpage: [https://zheweishi.github.io/15618-Project/](https://zheweishi.
 |12/03 |Online Learning Paper Reading & background Search (Both)|
 |12/08 |Online Learning Exploration (implementation and experiments)|
 |12/15 |Wrap Up and Final Project Submission|
-
-## [Project Proposal](https://zheweishi.github.io/15618-Project/proposal.html)
-
-## Checkpoint Report
-
-## Final Report

@@ -4,9 +4,9 @@ Team Members: Zhewei Shi (zheweis), Weijie Chen (weijiec)
 
 Project Webpage: [https://zheweishi.github.io/15618-Project/](https://zheweishi.github.io/15618-Project/)
 
-## [Project Proposal](https://zheweishi.github.io/15618-Project/proposal.html)
+## [Proposal](https://zheweishi.github.io/15618-Project/proposal.html)
 
-## [Checkpoint Report](https://zheweishi.github.io/15618-Project/checkpoint.html)
+## [Checkpoint](https://zheweishi.github.io/15618-Project/checkpoint.html)
 
 ## [Final Report](https://zheweishi.github.io/15618-Project/submit_report.pdf)
 

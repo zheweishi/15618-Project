@@ -26,7 +26,7 @@ We can further analyze our experiment results:
 
 (2) The larger dataset is, the better speedup we can get. Our approach will parallelize over the user/movie matrix, and each worker will be responsible for a subset of the matrix. Therefore, our algorithm can have an obvious performance improvement when the dataset is larger.
 
-### Describe how you are doing with respect to the goals and deliverables stated in your proposal.
+## Adjustments on Goals and Deliverables
 
 Currently, we have conducted experiments on a sample dataset from movieLens. We have not done extensive and comprehensive experiments and analysis of the ALS algorithm yet. In the following weeks, we can have more time devoted to this project and we believe that we can produce all planned deliverables in our proposal. The online learning part, which we set as a bonus part, would be dependent on the SGD algorithm progress.
 
@@ -56,7 +56,7 @@ Further optimization of ALS / SGD and Achieve X20 speedup **(newly added)**
 
 Explore parallelization on online learning for recommendation systems
 
-### What do you plan to show at the poster session?
+## Plan to Show at Poster Session
 
 During the poster session, we plan to show:
 
